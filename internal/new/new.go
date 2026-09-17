@@ -32,7 +32,7 @@ var CmdNew = &cobra.Command{
 
 func init() {
 	// repo-url flag 只在 RunE 内通过 cmd.Flags().GetString 读取，
-	// 避免包级变量在多次调用间泄漏（对比 create.go 的正确做法）。
+	// 避免包级变量在多次调用间泄漏（对比 gen.go 的正确做法）。
 	CmdNew.Flags().StringP("repo-url", "g", "", "layout repo")
 }
 

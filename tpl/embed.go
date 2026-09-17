@@ -2,8 +2,8 @@ package tpl
 
 import "embed"
 
-//go:embed create/*.tpl
-var CreateTplFS embed.FS
+//go:embed gen/*.tpl
+var GenTplFS embed.FS
 
 //go:embed basic.zip advanced.zip
 var NewTplZipFS embed.FS

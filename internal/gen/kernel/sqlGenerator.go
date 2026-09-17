@@ -354,7 +354,7 @@ func (g *Generator) getRepoOutputPath() (outPath string, err error) {
 
 // Format and output
 func (g *Generator) output(tmpl string, data interface{}, fileName string) error {
-	t, err := template.ParseFS(tpl.CreateTplFS, fmt.Sprintf("create/%s.tpl", tmpl))
+	t, err := template.ParseFS(tpl.GenTplFS, fmt.Sprintf("gen/%s.tpl", tmpl))
 	if err != nil {
 		return err
 	}
@@ -410,15 +410,17 @@ func (c *Column) needDefaultTag(defaultTagValue string) bool {
 	if defaultTagValue == "" {
 		return false
 	}
-	switch c.ScanType().Kind() {
-	case reflect.Bool:
-		return defaultTagValue != "false"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64:
-		return defaultTagValue != "0"
-	case reflect.String:
-		return defaultTagValue != ""
-	case reflect.Struct:
-		return strings.Trim(defaultTagValue, "'0:- ") != ""
+	if st := c.ScanType(); st != nil {
+		switch st.Kind() {
+		case reflect.Bool:
+			return defaultTagValue != "false"
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64:
+			return defaultTagValue != "0"
+		case reflect.String:
+			return defaultTagValue != ""
+		case reflect.Struct:
+			return strings.Trim(defaultTagValue, "'0:- ") != ""
+		}
 	}
 	return c.Name() != "created_at" && c.Name() != "updated_at"
 }

@@ -1,4 +1,4 @@
-package create
+package gen
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"unicode"
 
 	"github.com/spf13/cobra"
-	"github.com/sprucepeak/kun/internal/create/kernel"
+	"github.com/sprucepeak/kun/internal/gen/kernel"
 	"github.com/sprucepeak/kun/pkg/helper"
 	"github.com/sprucepeak/kun/pkg/output"
 	"github.com/sprucepeak/kun/tpl"
@@ -26,107 +26,107 @@ const (
 )
 
 var (
-	CmdCreate = &cobra.Command{
-		Use:     "create [type] [name]",
-		Short:   "Create a new hdl/svc/rt/db/cache/hs/crud",
-		Example: "kun create hdl user",
+	CmdGen = &cobra.Command{
+		Use:     "gen [type] [name]",
+		Short:   "Generate a new hdl/svc/rt/db/cache/hs/crud",
+		Example: "kun gen hdl user",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("create requires a subcommand: rt, hdl, svc,  db, cache, hs, crud")
+			return fmt.Errorf("gen requires a subcommand: rt, hdl, svc, db, cache, hs, crud")
 		},
 	}
 
-	CmdCreateHandler = &cobra.Command{
+	CmdGenHandler = &cobra.Command{
 		Use:     "hdl [name]",
-		Short:   "Create a new handler",
-		Example: "kun create hdl user",
+		Short:   "Generate a new handler",
+		Example: "kun gen hdl user",
 		Args:    cobra.ExactArgs(1),
-		RunE:    runCreate,
+		RunE:    runGen,
 	}
 
-	CmdCreateService = &cobra.Command{
+	CmdGenService = &cobra.Command{
 		Use:     "svc [name]",
-		Short:   "Create a new service",
-		Example: "kun create svc user",
+		Short:   "Generate a new service",
+		Example: "kun gen svc user",
 		Args:    cobra.ExactArgs(1),
-		RunE:    runCreate,
+		RunE:    runGen,
 	}
 
-	CmdCreateRouter = &cobra.Command{
+	CmdGenRouter = &cobra.Command{
 		Use:     "rt [name]",
-		Short:   "Create a new router",
-		Example: "kun create rt user",
+		Short:   "Generate a new router",
+		Example: "kun gen rt user",
 		Args:    cobra.ExactArgs(1),
-		RunE:    runCreate,
+		RunE:    runGen,
 	}
 
-	CmdCreateDBRepository = &cobra.Command{
+	CmdGenDBRepository = &cobra.Command{
 		Use:     "db [DSN|SQL_FILE] [tables|*]",
-		Short:   "Create a new DB repository from DB connection or SQL file",
-		Example: `kun create db "name:pwd@tcp(127.0.0.1:3306)/dbname" [t1,t2|t1|*]  OR  kun create db "schema.sql" [t1,t2|*]`,
+		Short:   "Generate a new DB repository from DB connection or SQL file",
+		Example: `kun gen db "name:pwd@tcp(127.0.0.1:3306)/dbname" [t1,t2|t1|*]  OR  kun gen db "schema.sql" [t1,t2|*]`,
 		Args:    cobra.RangeArgs(1, 2),
 		RunE:    genDBRepo,
 	}
 
-	CmdCreateCacheRepository = &cobra.Command{
+	CmdGenCacheRepository = &cobra.Command{
 		Use:     "cache [name]",
-		Short:   "Create a new cache repository",
-		Example: "kun create cache ",
+		Short:   "Generate a new cache repository",
+		Example: "kun gen cache user",
 		Args:    cobra.ExactArgs(1),
-		RunE:    runCreate,
+		RunE:    runGen,
 	}
 
-	CmdCreateHandlerAndService = &cobra.Command{
+	CmdGenHandlerAndService = &cobra.Command{
 		Use:     "hs [name]",
-		Short:   "Create a new handler & service",
-		Example: "kun create hs user",
+		Short:   "Generate a new handler & service",
+		Example: "kun gen hs user",
 		Args:    cobra.ExactArgs(1),
-		RunE:    runCreate,
+		RunE:    runGen,
 	}
 
-	CmdCreateCRUD = &cobra.Command{
+	CmdGenCRUD = &cobra.Command{
 		Use:     "crud [name]",
-		Short:   "Create a new router, service & handler in one step",
-		Example: "kun create crud user",
+		Short:   "Generate a new router, service & handler in one step",
+		Example: "kun gen crud user",
 		Args:    cobra.ExactArgs(1),
-		RunE:    runCreateCRUD,
+		RunE:    runGenCRUD,
 	}
 )
 
 func init() {
 	// flag 绑定到各子命令;业务逻辑通过 cmd.Flags().Get* 读取,避免包级变量在多次调用间泄漏。
 	for _, c := range []*cobra.Command{
-		CmdCreateHandler, CmdCreateService, CmdCreateHandlerAndService,
-		CmdCreateRouter, CmdCreateDBRepository, CmdCreateCacheRepository,
-		CmdCreateCRUD,
+		CmdGenHandler, CmdGenService, CmdGenHandlerAndService,
+		CmdGenRouter, CmdGenDBRepository, CmdGenCacheRepository,
+		CmdGenCRUD,
 	} {
 		c.Flags().StringP("tpl-path", "t", "", "template path")
 		c.Flags().Bool("dry-run", false, "preview generated files without modifying disk")
 	}
 	for _, c := range []*cobra.Command{
-		CmdCreateHandler, CmdCreateService, CmdCreateHandlerAndService,
-		CmdCreateRouter, CmdCreateCacheRepository, CmdCreateCRUD,
+		CmdGenHandler, CmdGenService, CmdGenHandlerAndService,
+		CmdGenRouter, CmdGenCacheRepository, CmdGenCRUD,
 	} {
 		c.Flags().BoolP("force", "f", false, "force override existing file")
 	}
 }
 
-// Register E6: 将 create 及其子命令挂载到 parent，由本包自行维护命令树。
+// Register E6: 将 gen 及其子命令挂载到 parent，由本包自行维护命令树。
 func Register(parent *cobra.Command) {
-	parent.AddCommand(CmdCreate)
-	CmdCreate.AddCommand(CmdCreateHandler)
-	CmdCreate.AddCommand(CmdCreateService)
-	CmdCreate.AddCommand(CmdCreateHandlerAndService)
-	CmdCreate.AddCommand(CmdCreateRouter)
-	CmdCreate.AddCommand(CmdCreateDBRepository)
-	CmdCreate.AddCommand(CmdCreateCacheRepository)
-	CmdCreate.AddCommand(CmdCreateCRUD)
+	parent.AddCommand(CmdGen)
+	CmdGen.AddCommand(CmdGenHandler)
+	CmdGen.AddCommand(CmdGenService)
+	CmdGen.AddCommand(CmdGenHandlerAndService)
+	CmdGen.AddCommand(CmdGenRouter)
+	CmdGen.AddCommand(CmdGenDBRepository)
+	CmdGen.AddCommand(CmdGenCacheRepository)
+	CmdGen.AddCommand(CmdGenCRUD)
 }
 
-type Create struct {
+type Gen struct {
 	ProjectName        string
 	CmdType            string
-	CreateType         string
+	GenType            string
 	FilePath           string
 	FileName           string
 	FileNameTitleLower string
@@ -140,8 +140,8 @@ type Create struct {
 	PrimaryKeyType     string
 }
 
-func NewCreate() *Create {
-	return &Create{}
+func NewGen() *Gen {
+	return &Gen{}
 }
 
 // 文件生成配置
@@ -151,7 +151,7 @@ type genConfig struct {
 	structSuffix string
 	// importMarker 非默认包名时,import 注入所锚定的 marker 注释行(位于 DI 文件 import 块内)。
 	importMarker string
-	diBuilder    func(*Create) map[string]string
+	diBuilder    func(*Gen) map[string]string
 }
 
 // 生成配置映射
@@ -161,10 +161,10 @@ var genConfigs = map[string]genConfig{
 		defaultPkg:   TypeHandler,
 		structSuffix: "Handler",
 		importMarker: "// ==== Add Handler import before this line, don't edit this line.====",
-		diBuilder: func(c *Create) map[string]string {
+		diBuilder: func(c *Gen) map[string]string {
 			packageName := c.PackageName + "."
 			tPrefix := strings.ToUpper(string(c.PackageName[0])) + c.PackageName[1:]
-			if c.PackageName == c.CreateType {
+			if c.PackageName == c.GenType {
 				packageName = ""
 				tPrefix = ""
 			}
@@ -179,7 +179,7 @@ var genConfigs = map[string]genConfig{
 		defaultPkg:   "svc",
 		structSuffix: "Svc",
 		importMarker: "// ==== Add Svc import before this line, don't edit this line.====",
-		diBuilder: func(c *Create) map[string]string {
+		diBuilder: func(c *Gen) map[string]string {
 			return map[string]string{
 				"// ==== Add Svc before this line, don't edit this line.====": "\twire.Struct(new(" + c.PackageName + "." + c.FileName + "Ctx), \"*\"),\n    " +
 					c.PackageName + ".New" + c.FileName + "Svc,",
@@ -191,9 +191,9 @@ var genConfigs = map[string]genConfig{
 		defaultPkg:   TypeRouter,
 		structSuffix: "",
 		importMarker: "// ==== Add Rt import  before this line, don't edit this line.====",
-		diBuilder: func(c *Create) map[string]string {
+		diBuilder: func(c *Gen) map[string]string {
 			packageName := c.PackageName + "."
-			if c.PackageName == c.CreateType {
+			if c.PackageName == c.GenType {
 				packageName = ""
 			}
 			return map[string]string{
@@ -206,7 +206,7 @@ var genConfigs = map[string]genConfig{
 		defaultPkg:   "cache",
 		structSuffix: "Cache",
 		importMarker: "// ==== Add Repo import before this line, don't edit this line.====",
-		diBuilder: func(c *Create) map[string]string {
+		diBuilder: func(c *Gen) map[string]string {
 			return map[string]string{
 				"// ==== Add Repo before this line, don't edit this line.====": "\t" + c.PackageName + ".New" + c.FileName + "Cache,",
 			}
@@ -214,8 +214,8 @@ var genConfigs = map[string]genConfig{
 	},
 }
 
-func runCreate(cmd *cobra.Command, args []string) error {
-	c := NewCreate()
+func runGen(cmd *cobra.Command, args []string) error {
+	c := NewGen()
 	projectName, err := helper.GetProjectName(".")
 	if err != nil {
 		return fmt.Errorf("get project name error: %w", err)
@@ -251,43 +251,42 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	switch c.CmdType {
 	case "hdl":
-		c.CreateType = TypeHandler
+		c.GenType = TypeHandler
 		return c.generateFile()
 
 	case "svc":
-		c.CreateType = TypeService
+		c.GenType = TypeService
 		return c.generateFile()
 
 	case "hs":
-		c.CreateType = TypeHandler
+		c.GenType = TypeHandler
 		if err := c.generateFile(); err != nil {
 			return err
 		}
-		c.CreateType = TypeService
+		c.GenType = TypeService
 		return c.generateFile()
 
 	case "rt":
-		c.CreateType = TypeRouter
+		c.GenType = TypeRouter
 		return c.generateFile()
 
 	case "cache":
-		c.CreateType = TypeCache
+		c.GenType = TypeCache
 		return c.generateFile()
 
 	default:
 		return fmt.Errorf("invalid type: %s", c.CmdType)
 	}
-
 }
 
-func runCreateCRUD(cmd *cobra.Command, args []string) error {
+func runGenCRUD(cmd *cobra.Command, args []string) error {
 	steps := []struct {
-		cmdType    string
-		createType string
+		cmdType string
+		genType string
 	}{
-		{cmdType: "hdl", createType: TypeHandler},
-		{cmdType: "svc", createType: TypeService},
-		{cmdType: "rt", createType: TypeRouter},
+		{cmdType: "hdl", genType: TypeHandler},
+		{cmdType: "svc", genType: TypeService},
+		{cmdType: "rt", genType: TypeRouter},
 	}
 
 	projectName, err := helper.GetProjectName(".")
@@ -300,14 +299,14 @@ func runCreateCRUD(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	for _, step := range steps {
-		c := NewCreate()
+		c := NewGen()
 		c.ProjectName = projectName
 		c.TplPath = tplPath
 		c.Force = force
 		c.DryRun = dryRun
 		c.PrimaryKeyType = "int64"
 		c.CmdType = step.cmdType
-		c.CreateType = step.createType
+		c.GenType = step.genType
 
 		arg := args[0]
 		if c.CmdType == "svc" {
@@ -335,8 +334,8 @@ func runCreateCRUD(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (c *Create) generateFile() error {
-	config, ok := genConfigs[c.CreateType]
+func (c *Gen) generateFile() error {
+	config, ok := genConfigs[c.GenType]
 	if !ok {
 		return fmt.Errorf("invalid type: %s", c.CmdType)
 	}
@@ -355,7 +354,7 @@ func (c *Create) generateFile() error {
 
 	absPath, err := filepath.Abs(filepath.Join(filePath, fileName))
 	if err != nil {
-		return fmt.Errorf("create %s error: %w", c.CreateType, err)
+		return fmt.Errorf("gen %s error: %w", c.GenType, err)
 	}
 	absDir := filepath.Dir(absPath)
 
@@ -365,15 +364,15 @@ func (c *Create) generateFile() error {
 	// "../../../tmp/internal/handler/x" 同样包含 "/internal/handler/"。
 	expectedRoot, err := filepath.Abs(filepath.Join(BasePath, config.typePath))
 	if err != nil {
-		return fmt.Errorf("create %s error: %w", c.CreateType, err)
+		return fmt.Errorf("gen %s error: %w", c.GenType, err)
 	}
 	rel, err := filepath.Rel(expectedRoot, absDir)
 	if err != nil {
-		return fmt.Errorf("create %s error: %w", c.CreateType, err)
+		return fmt.Errorf("gen %s error: %w", c.GenType, err)
 	}
 	rel = filepath.ToSlash(rel)
 	if rel == ".." || strings.HasPrefix(rel, "../") || filepath.IsAbs(rel) {
-		return fmt.Errorf("create %s error: target path %s escapes %s", c.CreateType, absDir, expectedRoot)
+		return fmt.Errorf("gen %s error: target path %s escapes %s", c.GenType, absDir, expectedRoot)
 	}
 
 	absLinuxPath := filepath.ToSlash(absDir) + "/"
@@ -391,16 +390,16 @@ func (c *Create) generateFile() error {
 	var t *template.Template
 	if c.TplPath == "" {
 		// E2: embed FS 路径使用正斜杠字符串拼接（path/filepath 在 Windows 下会用反斜杠）
-		t, err = template.ParseFS(tpl.CreateTplFS, "create/"+c.CreateType+".tpl")
+		t, err = template.ParseFS(tpl.GenTplFS, "gen/"+c.GenType+".tpl")
 	} else {
-		t, err = template.ParseFiles(filepath.Join(c.TplPath, c.CreateType+".tpl"))
+		t, err = template.ParseFiles(filepath.Join(c.TplPath, c.GenType+".tpl"))
 	}
 	if err != nil {
-		return fmt.Errorf("create %s error: %w", c.CreateType, err)
+		return fmt.Errorf("gen %s error: %w", c.GenType, err)
 	}
 	if c.DryRun {
-		output.Success("[dry-run] will create new %s: %s", c.CreateType, filepath.Join(absLinuxPath, fileName))
-		if c.CreateType == TypeCache {
+		output.Success("[dry-run] will generate new %s: %s", c.GenType, filepath.Join(absLinuxPath, fileName))
+		if c.GenType == TypeCache {
 			output.Success("[dry-run] will generate keys.go in %s", absLinuxPath)
 		}
 		output.Success("[dry-run] will inject DI markers for %s", c.FileName)
@@ -408,7 +407,7 @@ func (c *Create) generateFile() error {
 	}
 	f, existed, err := createFile(filePath, fileName, c.Force)
 	if err != nil {
-		return fmt.Errorf("create %s error: %w", c.CreateType, err)
+		return fmt.Errorf("gen %s error: %w", c.GenType, err)
 	}
 	if existed {
 		output.Warn("warn: file %s%s already exists. Use -f/--force to overwrite.", absLinuxPath, fileName)
@@ -421,11 +420,11 @@ func (c *Create) generateFile() error {
 	if err = t.Execute(f, c); err != nil {
 		_ = f.Close()
 		_ = os.Remove(filepath.Join(filePath, fileName))
-		return fmt.Errorf("create %s error: %w", c.CreateType, err)
+		return fmt.Errorf("gen %s error: %w", c.GenType, err)
 	}
-	output.Success("created new %s: %s", c.CreateType, filepath.Join(absLinuxPath, fileName))
+	output.Success("generated new %s: %s", c.GenType, filepath.Join(absLinuxPath, fileName))
 
-	if c.CreateType == TypeCache {
+	if c.GenType == TypeCache {
 		if err = generateKeysFile(absLinuxPath, c); err != nil {
 			return fmt.Errorf("generate keys.go error: %w", err)
 		}
@@ -496,7 +495,7 @@ type keysData struct {
 	KeyValue    string
 }
 
-func generateKeysFile(dirPath string, c *Create) error {
+func generateKeysFile(dirPath string, c *Gen) error {
 	keysPath := filepath.Join(dirPath, "keys.go")
 	keyName := c.FileName + "DataKey"
 	keyValue := "cache:" + c.FileNameTitleLower + ":%d"
