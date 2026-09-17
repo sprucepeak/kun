@@ -5,9 +5,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sprucepeak/kun/config"
-	"github.com/sprucepeak/kun/internal/create"
+	"github.com/sprucepeak/kun/internal/check"
+	"github.com/sprucepeak/kun/internal/gen"
+	"github.com/sprucepeak/kun/internal/mock"
 	"github.com/sprucepeak/kun/internal/new"
 	"github.com/sprucepeak/kun/internal/run"
+	"github.com/sprucepeak/kun/internal/swag"
 	"github.com/sprucepeak/kun/internal/upgrade"
 	"github.com/sprucepeak/kun/internal/wire"
 )
@@ -28,8 +31,11 @@ func init() {
 	new.Register(CmdRoot)
 	run.Register(CmdRoot)
 	upgrade.Register(CmdRoot)
-	create.Register(CmdRoot)
+	gen.Register(CmdRoot)
 	wire.Register(CmdRoot)
+	mock.Register(CmdRoot)
+	check.Register(CmdRoot)
+	swag.Register(CmdRoot)
 }
 
 // CommandError 包装命令执行过程中发生的错误，附带目标命令的路径。
