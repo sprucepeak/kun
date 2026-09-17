@@ -1,7 +1,7 @@
-// Package create provides the "kun create db" subcommand.
+// Package gen provides the "kun gen db" subcommand.
 // It connects to a database (or parses a SQL file) and generates
 // GORM repository files for the specified tables.
-package create
+package gen
 
 import (
 	"errors"
@@ -9,9 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/glebarez/sqlite"
 	"github.com/spf13/cobra"
-	"github.com/sprucepeak/kun/internal/create/kernel"
+	"github.com/sprucepeak/kun/internal/gen/kernel"
 	"github.com/sprucepeak/kun/pkg/output"
+	"gorm.io/driver/clickhouse"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )
@@ -39,15 +43,12 @@ type CmdParams struct {
 	DBType  string   // 数据库类型
 }
 
-// driverRegistry P1: 驱动注册表。
-// mysql/postgres 由 genDBRepo_mysql.go 默认注册；
-// sqlite 由 genDBRepo_sqlite.go（build tag: with_sqlite）注册；
-// clickhouse 由 genDBRepo_clickhouse.go（build tag: with_clickhouse）注册。
-var driverRegistry = map[DBType]func(string) gorm.Dialector{}
-
-// registerDriver 由各驱动文件的 init() 调用，将驱动注册到全局表。
-func registerDriver(t DBType, opener func(string) gorm.Dialector) {
-	driverRegistry[t] = opener
+// driverRegistry 驱动映射表（均采用纯 Go 驱动实现，无 CGO 依赖，支持纯静态构建与全平台交叉编译）
+var driverRegistry = map[DBType]func(string) gorm.Dialector{
+	dbMySQL:      func(dsn string) gorm.Dialector { return mysql.Open(dsn) },
+	dbPostgres:   func(dsn string) gorm.Dialector { return postgres.Open(dsn) },
+	dbSQLite:     func(dsn string) gorm.Dialector { return sqlite.Open(dsn) },
+	dbClickHouse: func(dsn string) gorm.Dialector { return clickhouse.Open(dsn) },
 }
 
 // connectDB 连接数据库 选择用于连接到数据库的数据库类型
@@ -57,7 +58,7 @@ func connectDB(t DBType, dsn string) (*gorm.DB, error) {
 	}
 	opener, ok := driverRegistry[t]
 	if !ok {
-		return nil, fmt.Errorf("driver %q is not available in this build (mysql/postgres built-in; add -tags with_sqlite or -tags with_clickhouse for others)", t)
+		return nil, fmt.Errorf("driver %q is not supported", t)
 	}
 	return gorm.Open(opener(dsn))
 }
@@ -122,9 +123,13 @@ func genDBRepo(cmd *cobra.Command, args []string) error {
 	var tablesList []string
 	if len(cmdConf.Tables) == 0 {
 		// Execute tasks for all tables in the database
-		tablesList, err = gormDb.Migrator().GetTables()
+		tablesList, err = getDBTables(gormDb, DBType(cmdConf.DBType))
 		if err != nil {
 			return fmt.Errorf("GORM migrator get all tables fail: %w", maskDSN(err))
+		}
+		if len(tablesList) == 0 {
+			output.Warn("no tables found in database")
+			return nil
 		}
 	} else {
 		tablesList = cmdConf.Tables
@@ -154,6 +159,35 @@ func genDBRepo(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// getDBTables 获取数据库中所有表名，针对 ClickHouse 等缺少 information_schema 的数据库提供原生系统表及 SHOW TABLES 兜底支持
+func getDBTables(gormDb *gorm.DB, dbType DBType) ([]string, error) {
+	if dbType == dbClickHouse {
+		var tablesList []string
+		// 1. 优先从 ClickHouse 原生系统表 system.tables 查询当前数据库下的所有常规非临时表
+		if err := gormDb.Raw("SELECT name FROM system.tables WHERE database = currentDatabase() AND is_temporary = 0").Scan(&tablesList).Error; err == nil {
+			return tablesList, nil
+		}
+		// 2. 降级使用 ClickHouse 原生 SHOW TABLES 语法
+		if err := gormDb.Raw("SHOW TABLES").Scan(&tablesList).Error; err == nil {
+			return tablesList, nil
+		}
+	}
+
+	// 默认使用 GORM 官方 Migrator.GetTables()
+	tablesList, err := gormDb.Migrator().GetTables()
+	if err != nil {
+		// 3. 容错降级：如果 Migrator 报错（如 ClickHouse 或精简库提示 information_schema doesn't exist）
+		if dbType == dbClickHouse || strings.Contains(strings.ToLower(err.Error()), "information_schema") {
+			var fallbackTables []string
+			if fErr := gormDb.Raw("SHOW TABLES").Scan(&fallbackTables).Error; fErr == nil {
+				return fallbackTables, nil
+			}
+		}
+		return nil, err
+	}
+	return tablesList, nil
+}
+
 // maskDSN 将错误信息中可能出现的 DSN 密码替换为 ***,避免明文密码进终端/CI 日志。
 //
 // B3: 此处故意使用 fmt.Errorf("%s", msg) 而非 %w，因为原始错误中包含明文密码片段。
@@ -164,10 +198,20 @@ func maskDSN(err error) error {
 		return nil
 	}
 	msg := err.Error()
-	// MySQL DSN 形如 user:password@tcp(host)/dbname —— 把第一个 ':' 与 '@tcp'/'@' 之间的内容掩码。
+	// 1. MySQL DSN 形如 user:password@tcp(host)/dbname —— 把第一个 ':' 与 '@tcp' 之间的内容掩码。
 	if at := strings.Index(msg, "@tcp("); at > 0 {
 		if colon := strings.Index(msg[:at], ":"); colon >= 0 && colon < at {
 			msg = msg[:colon+1] + "***" + msg[at:]
+		}
+	}
+	// 2. URL 风格 DSN (clickhouse://user:password@host, postgres://user:password@host 等)
+	if scheme := strings.Index(msg, "://"); scheme > 0 {
+		rest := msg[scheme+3:]
+		if at := strings.Index(rest, "@"); at > 0 {
+			userPass := rest[:at]
+			if colon := strings.Index(userPass, ":"); colon >= 0 {
+				msg = msg[:scheme+3+colon+1] + "***" + msg[scheme+3+at:]
+			}
 		}
 	}
 	return fmt.Errorf("%s", msg)
