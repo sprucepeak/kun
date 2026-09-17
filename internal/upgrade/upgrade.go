@@ -17,7 +17,7 @@ var CmdUpgrade = &cobra.Command{
 	Example: "kun upgrade",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		output.Success("go install %s", config.KunUrl)
-		cmd := exec.Command("go", "install", config.KunUrl)
+		cmd := exec.Command("go", "install", "-ldflags=-s -w", config.KunUrl)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
