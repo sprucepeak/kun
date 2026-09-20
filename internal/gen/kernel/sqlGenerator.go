@@ -75,43 +75,80 @@ type ColumnIndex struct {
 	Priority int32 `gorm:"column:SEQ_IN_INDEX"`
 }
 
-type dataTypeMap map[string]func(detailType string) (finalType string)
+type dataTypeMap map[string]string
 
 var (
 	defaultDataType             = "string"
-	dataType        dataTypeMap = map[string]func(detailType string) (finalType string){
-		"numeric":    func(string) string { return "int64" },
-		"integer":    func(string) string { return "int64" },
-		"int":        func(string) string { return "int64" },
-		"smallint":   func(string) string { return "int64" },
-		"mediumint":  func(string) string { return "int64" },
-		"bigint":     func(string) string { return "int64" },
-		"float":      func(string) string { return "float64" },
-		"real":       func(string) string { return "float64" },
-		"double":     func(string) string { return "float64" },
-		"decimal":    func(string) string { return "float64" },
-		"char":       func(string) string { return "string" },
-		"varchar":    func(string) string { return "string" },
-		"tinytext":   func(string) string { return "string" },
-		"mediumtext": func(string) string { return "string" },
-		"longtext":   func(string) string { return "string" },
-		"binary":     func(string) string { return "[]byte" },
-		"varbinary":  func(string) string { return "[]byte" },
-		"tinyblob":   func(string) string { return "[]byte" },
-		"blob":       func(string) string { return "[]byte" },
-		"mediumblob": func(string) string { return "[]byte" },
-		"longblob":   func(string) string { return "[]byte" },
-		"text":       func(string) string { return "string" },
-		"json":       func(string) string { return "string" },
-		"enum":       func(string) string { return "string" },
-		"time":       func(string) string { return "time.Time" },
-		"date":       func(string) string { return "time.Time" },
-		"datetime":   func(string) string { return "time.Time" },
-		"timestamp":  func(string) string { return "time.Time" },
-		"year":       func(string) string { return "int64" },
-		"bit":        func(string) string { return "[]uint8" },
-		"boolean":    func(string) string { return "bool" },
-		"tinyint":    func(detailType string) string { return "int8" },
+	dataType        dataTypeMap = map[string]string{
+		// 1. 整数体系（严格按存储位宽精准映射，支持 FieldSignable 无符号自动转 uint）
+		"tinyint":   "int8",
+		"smallint":  "int16",
+		"mediumint": "int32",
+		"int":       "int32",
+		"integer":   "int32",
+		"bigint":    "int64",
+		"year":      "int16",
+
+		// PostgreSQL 专属整数别名
+		"int2": "int16",
+		"int4": "int32",
+
+		// ClickHouse 显式定长整数及无符号整数
+		"int8":   "int8",
+		"int16":  "int16",
+		"int32":  "int32",
+		"int64":  "int64",
+		"uint8":  "uint8",
+		"uint16": "uint16",
+		"uint32": "uint32",
+		"uint64": "uint64",
+
+		// 2. 浮点与高精度数值
+		"float":   "float64",
+		"float32": "float32", // ClickHouse / PG float4
+		"float4":  "float32", // PostgreSQL float4
+		"float64": "float64", // ClickHouse / PG float8
+		"float8":  "float64", // PostgreSQL float8
+		"real":    "float64",
+		"double":  "float64",
+		"decimal": "float64",
+		"numeric": "float64",
+
+		// 3. 字符串与文本
+		"string":     "string", // ClickHouse String
+		"char":       "string",
+		"varchar":    "string",
+		"tinytext":   "string",
+		"mediumtext": "string",
+		"longtext":   "string",
+		"text":       "string",
+		"json":       "string",
+		"jsonb":      "string", // PostgreSQL
+		"uuid":       "string", // PostgreSQL / ClickHouse
+		"enum":       "string",
+
+		// 4. 二进制数据
+		"binary":     "[]byte",
+		"varbinary":  "[]byte",
+		"bytea":      "[]byte", // PostgreSQL 二进制存储
+		"tinyblob":   "[]byte",
+		"blob":       "[]byte",
+		"mediumblob": "[]byte",
+		"longblob":   "[]byte",
+
+		// 5. 日期时间
+		"date":        "time.Time",
+		"date32":      "time.Time", // ClickHouse Date32
+		"datetime":    "time.Time",
+		"datetime64":  "time.Time", // ClickHouse DateTime64
+		"timestamp":   "time.Time",
+		"timestamptz": "time.Time", // PostgreSQL timestamp with time zone
+		"time":        "string",    // 纯时间（时分秒）映射为 string
+
+		// 6. 布尔与位类型
+		"bool":    "bool", // PostgreSQL bool
+		"boolean": "bool",
+		"bit":     "[]uint8",
 	}
 )
 
@@ -375,9 +412,9 @@ func (g *Generator) checkStructName(name string) error {
 	return nil
 }
 
-func (m dataTypeMap) Get(dataType, detailType string) string {
-	if convert, ok := m[strings.ToLower(dataType)]; ok {
-		return convert(detailType)
+func (m dataTypeMap) Get(dataType string) string {
+	if finalType, ok := m[strings.ToLower(dataType)]; ok {
+		return finalType
 	}
 	return defaultDataType
 }
@@ -385,7 +422,7 @@ func (m dataTypeMap) Get(dataType, detailType string) string {
 // GetSQLGoType returns the Go type for a given SQL database type name.
 // Unified public API used by both DB-connection and SQL-file code paths.
 func GetSQLGoType(databaseTypeName, columnType string) string {
-	return dataType.Get(databaseTypeName, columnType)
+	return dataType.Get(databaseTypeName)
 }
 
 func (c *Column) columnType() (v string) {
@@ -468,7 +505,7 @@ func (c *Column) ToField(nullable, coverable, signable bool) *Field {
 	if c.UseScanType && c.ScanType() != nil {
 		fieldType = c.ScanType().String()
 	} else {
-		fieldType = dataType.Get(c.DatabaseTypeName(), c.columnType())
+		fieldType = dataType.Get(c.DatabaseTypeName())
 	}
 
 	if signable && strings.Contains(c.columnType(), "unsigned") && strings.HasPrefix(fieldType, "int") {
