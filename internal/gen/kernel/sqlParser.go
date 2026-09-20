@@ -646,7 +646,7 @@ func buildField(cd *columnDef, uniqueIdxs []uniqueIndexInfo, conf *SQLConfig) *F
 			gormTag += fmt.Sprintf(";uniqueIndex:%s,priority:%d", idx.IndexName, idx.Priority)
 		}
 	}
-	if defaultVal != "" && !isPK && !isZeroDefault(goType, defaultVal) {
+	if defaultVal != "" && !isPK {
 		gormTag += ";default:" + defaultVal
 	}
 
@@ -664,7 +664,7 @@ func buildField(cd *columnDef, uniqueIdxs []uniqueIndexInfo, conf *SQLConfig) *F
 	// FieldCoverable: 当字段具有默认值时生成指针
 	// FieldNullable: 当字段可为空时生成指针（主键和 deleted_at 除外）
 	switch {
-	case conf.FieldCoverable && defaultVal != "" && !isZeroDefault(goType, defaultVal) && !isPK && cd.Name != "deleted_at":
+	case conf.FieldCoverable && defaultVal != "" && !isPK && cd.Name != "deleted_at":
 		goType = "*" + goType
 	case conf.FieldNullable && isNullable && !isPK && cd.Name != "deleted_at":
 		goType = "*" + goType
@@ -701,20 +701,6 @@ func unescapeSQLString(s string) string {
 	s = strings.ReplaceAll(s, "''", "'")
 	s = strings.ReplaceAll(s, "\\'", "'")
 	return s
-}
-
-// isZeroDefault 判断默认值是否是 Go 零值（无需写入 gorm default tag）
-func isZeroDefault(goType, val string) bool {
-	baseType := strings.TrimPrefix(goType, "*")
-	switch baseType {
-	case "int32", "int64", "uint32", "uint64", "float32", "float64":
-		return val == "0"
-	case "string":
-		return val == ""
-	case "bool":
-		return val == "false"
-	}
-	return false
 }
 
 // ────── encoding ──────
