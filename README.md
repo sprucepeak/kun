@@ -2,7 +2,8 @@
 
 ### 地势坤，君子以厚德载物
 
-`kun`（坤）是一个基于 Golang 的工程化应用脚手架与脚手架 CLI 工具，整合了 Go 生态中成熟、高效的优秀开源库，旨在帮助开发者快速构建高性能、可扩展、易维护的企业级微服务与 Web 应用。
+`kun`（坤）是一个基于 Golang 的工程化应用脚手架与脚手架 CLI 工具，整合了 Go 生态中成熟、高效的优秀开源库，旨在帮助开发者快速构建高性能、可扩展、易维护的企业级微服务与
+Web 应用。
 
 > [!TIP]
 > **💡 规范变更提醒**
@@ -28,7 +29,7 @@
 ## 架构特性
 
 * **超低学习成本与极速定制**：封装 Gopher 最熟悉的主流基础库，代码结构开箱即用，易于按需自由定制。
-* **高性能与极致轻量**：坚持纯 Go 实现，全内置数据库驱动**完全免 CGO 依赖**，支持极速交叉编译与瘦身部署。
+* **高性能与极致轻量**：坚持纯 Go 实现，全内置数据库驱动 **完全免 CGO 依赖**，支持极速交叉编译与瘦身部署。
 * **高可靠与企业级安全**：JWT 采用 CSPRNG 密码学安全随机数、双密钥物理隔离、Redis Cluster 单槽路由及全链路调用栈穿透日志定位。
 * **模块化与工程解耦**：基于 Wire 依赖注入与事件发布/订阅模式，职责清晰分明，高并发下从容扩展。
 
@@ -127,14 +128,14 @@ go install -ldflags="-s -w" github.com/sprucepeak/kun@latest
 
 ### 2. 内置全纯 Go 数据库驱动说明
 
-kun 内置支持全主流数据库逆向与代码生成，**所有驱动均为纯 Go 实现，完全无需 CGO**，支持静态编译与无缝跨平台交叉构建：
+kun 内置支持全主流数据库逆向与代码生成， **所有驱动均为纯 Go 实现，完全无需 CGO**，支持静态编译与无缝跨平台交叉构建：
 
-| 驱动                 | 默认支持 | 驱动库                                        | CGO 依赖 |
-| :------------------- | :------: | :-------------------------------------------- | :------: |
-| **MySQL**      |    ✅    | 官方纯 Go 驱动`gorm.io/driver/mysql`        |  ❌ 无  |
-| **PostgreSQL** |    ✅    | 官方纯 Go 驱动`gorm.io/driver/postgres`     |  ❌ 无  |
-| **SQLite**     |    ✅    | 纯 Go 驱动`github.com/glebarez/sqlite`      |  ❌ 无  |
-| **ClickHouse** |    ✅    | 官方 Native 驱动`gorm.io/driver/clickhouse` |  ❌ 无  |
+| 驱动           | 默认支持 | 驱动库                                      | CGO 依赖 |
+|:---------------|:--------:|:--------------------------------------------|:--------:|
+| **MySQL**      |    ✅    | 官方纯 Go 驱动`gorm.io/driver/mysql`        |  ❌ 无   |
+| **PostgreSQL** |    ✅    | 官方纯 Go 驱动`gorm.io/driver/postgres`     |  ❌ 无   |
+| **SQLite**     |    ✅    | 纯 Go 驱动`github.com/glebarez/sqlite`      |  ❌ 无   |
+| **ClickHouse** |    ✅    | 官方 Native 驱动`gorm.io/driver/clickhouse` |  ❌ 无   |
 
 ---
 
@@ -151,7 +152,8 @@ kun new projectName -g https://github.com/sprucepeak/kun.git
 > kun 内置了两种不同定位的工程模板：
 >
 > - **基础模板 (Basic Layout)**: 极简目录架构，仅包含基础 CRUD、日志与鉴权，适合资深开发者快速起步。
-> - **高级模板 (Advanced Layout)**: 包含双 Token 轮换认证、单端登录互斥、Redis 缓存击穿防护、Kafka + Asynq 异步调度中心、WebSocket、Excel 流式导出与 Swagger 等全套最佳实践。
+> - **高级模板 (Advanced Layout)**: 包含双 Token 轮换认证、单端登录互斥、Redis 缓存击穿防护、Kafka + Asynq
+    异步调度中心、WebSocket、Excel 流式导出与 Swagger 等全套最佳实践。
 
 ---
 
@@ -210,8 +212,9 @@ kun mock -v -x
 > [!TIP]
 > **💡 前置依赖与编写规范**
 >
-> - **前置工具**：使用前请确保已安装 `mockgen`（`go install go.uber.org/mock/mockgen@latest`）。若未安装，`kun mock` 会给出直接安装提示。
-> - **指令格式**：在待 Mock 接口定义上方添加指令，`//` 与 `go:generate` 之间**严禁有空格**：
+> - **前置工具**：使用前请确保已安装 `mockgen`（`go install go.uber.org/mock/mockgen@latest`）。若未安装，`kun mock`
+    会给出直接安装提示。
+> - **指令格式**：在待 Mock 接口定义上方添加指令，`//` 与 `go:generate` 之间 **严禁有空格**：
 >   ```go
 >   //go:generate mockgen -source=./demo.go -destination=../../../test/mocks/service/demo.go -package mock_service
 >   ```
@@ -222,12 +225,12 @@ kun mock -v -x
 
 `kun check` 提供了工业级的分级质量门禁（Quality Gate），采用**“日常极速模式 + 深度/供应链安全审计”**的最佳实践：
 
-| 维度                           | 核心工具          |     耗时     | 作用与覆盖范围                                                                                      |
-| :----------------------------- | :---------------- | :-----------: | :-------------------------------------------------------------------------------------------------- |
+| 维度                     | 核心工具        |  耗时   | 作用与覆盖范围                                                                              |
+|:-------------------------|:----------------|:-------:|:--------------------------------------------------------------------------------------------|
 | **日常极速静态分析**     | `golangci-lint` | **~2s** | 内存共享 AST 极速并发扫描：覆盖`govet`、`errcheck`、`gosec`(代码安全)、`nilerr` 等 50+ 规则 |
-| **并发竞态动态检测**     | `go test -race` | **~3s** | 运行时多协程读写内存冲突探测（Data Race），自动化单测非阻塞执行                                     |
-| **第三方依赖 CVE 审计**  | `govulncheck`   |     ~10s     | 联网比对 Go 官方实时漏洞库，符号级分析代码是否实际调用了漏洞依赖（通过`--cve` 触发）              |
-| **跨函数深度空指针分析** | Uber`nilaway`   |     ~30s     | 跨函数 Inter-procedural SSA 数据流深度推导潜在`nil panic`（通过 `--nil` 触发）                  |
+| **并发竞态动态检测**     | `go test -race` | **~3s** | 运行时多协程读写内存冲突探测（Data Race），自动化单测非阻塞执行                             |
+| **第三方依赖 CVE 审计**  | `govulncheck`   |  ~10s   | 联网比对 Go 官方实时漏洞库，符号级分析代码是否实际调用了漏洞依赖（通过`--cve` 触发）        |
+| **跨函数深度空指针分析** | Uber`nilaway`   |  ~30s   | 跨函数 Inter-procedural SSA 数据流深度推导潜在`nil panic`（通过 `--nil` 触发）              |
 
 ```bash
 # 1. 日常极速检查（默认执行：golangci-lint + race test，秒级完成）
@@ -255,8 +258,10 @@ kun check init
 > [!TIP]
 > **💡 首次自动就绪与自愈机制**
 >
-> - **无缝就绪**：`kun check` 采用动态探测机制，首次运行时若缺少 `golangci-lint`、`govulncheck` 或 `nilaway`，将自动静默安装并即刻执行；后续运行零安装耗时。
-> - **优雅降级**：若由于离线网络或未配置 `GOPROXY` 导致外部工具下载失败，程序不会崩溃，会自动将其标记为 `SKIPPED` 并继续完成已有检查。
+> - **无缝就绪**：`kun check` 采用动态探测机制，首次运行时若缺少 `golangci-lint`、`govulncheck` 或 `nilaway`
+    ，将自动静默安装并即刻执行；后续运行零安装耗时。
+> - **优雅降级**：若由于离线网络或未配置 `GOPROXY` 导致外部工具下载失败，程序不会崩溃，会自动将其标记为 `SKIPPED`
+    并继续完成已有检查。
 
 ---
 
@@ -267,8 +272,10 @@ kun check init
 > [!IMPORTANT]
 > **💡 架构约定与 `swagger` 文件夹校验**
 >
-> - **输出目录约束**：在 kun 工程架构中，Swagger 文档代码统一放置在根目录下的 **`swagger/`** 目录（代码内部由 `internal/router/router.go` 显式导入 `import "{projectName}/swagger"` 供路由直接注册编译）。
-> - **目录防呆检查**：执行 `kun swag` 时会**自动检测当前项目根目录下是否存在 `swagger` 文件夹**。若未检测到，将输出友好错误及创建指引（`mkdir swagger`），防止文档生成到错误位置导致无法编译进程序。
+> - **输出目录约束**：在 kun 工程架构中，Swagger 文档代码统一放置在根目录下的 **`swagger/`** 目录（代码内部由
+    `internal/router/router.go` 显式导入 `import "{projectName}/swagger"` 供路由直接注册编译）。
+> - **目录防呆检查**：执行 `kun swag` 时会 **自动检测当前项目根目录下是否存在 `swagger` 文件夹**。若未检测到，将输出友好错误及创建指引（
+    `mkdir swagger`），防止文档生成到错误位置导致无法编译进程序。
 
 ```bash
 # 1. 默认一键生成（自动寻找入口 cmd/server/main.go 并输出至 ./swagger）
