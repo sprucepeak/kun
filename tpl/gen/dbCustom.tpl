@@ -2,6 +2,9 @@ package {{.PackageName}}
 
 import (
 	"context"
+{{- if .HasPrimaryKey}}
+	"strconv"
+{{- end}}
 )
 
 //go:generate mockgen -source=./{{.InterfaceName}}.go -destination=../../../test/mocks/repository/db/{{.InterfaceName}}.go -package mock_repo_db -aux_files {{.PackageName}}=./{{.InterfaceName}}_gen.go
@@ -57,7 +60,7 @@ func (c *custom{{.StructName}}Db) buildListQuery(ctx context.Context, args *{{.S
 
 	{{if .HasPrimaryKey -}}
 	switch {
-	case args.LastId > 0: // 游标分页
+	case args.LastId != "" && args.LastId != "0": // 游标分页
 		// 游标按主键 {{.PrimaryKeyColumn}} 比较,因此排序也必须按 {{.PrimaryKeyColumn}},否则(如按其它列排序而按主键取游标)
 		// 翻页结果会重复或漏行。需要按其它列做游标分页时,应改为 (orderCol, {{.PrimaryKeyColumn}}) 复合游标。
 		cursorOrder := Table{{.StructName}} + ".{{.PrimaryKeyColumn}} DESC"
@@ -66,7 +69,11 @@ func (c *custom{{.StructName}}Db) buildListQuery(ctx context.Context, args *{{.S
 			cursorOrder = Table{{.StructName}} + ".{{.PrimaryKeyColumn}} ASC"
 			lastCond = Table{{.StructName}} + ".{{.PrimaryKeyColumn}} > ?"
 		}
-		return filter.Where(lastCond, args.LastId).Order(cursorOrder).Limit(limit)
+		var cursorVal any = args.LastId
+		if id, err := strconv.ParseInt(args.LastId, 10, 64); err == nil {
+			cursorVal = id
+		}
+		return filter.Where(lastCond, cursorVal).Order(cursorOrder).Limit(limit)
 	case offset > 100000: // 深分页: SELECT * FROM {{.TableName}} INNER JOIN (SELECT {{.PrimaryKeyColumn}} FROM {{.TableName}} WHERE ... ORDER BY {{.PrimaryKeyColumn}} LIMIT ?,?) AS tmp USING({{.PrimaryKeyColumn}})
 		subQuery := filter.Select("{{.PrimaryKeyColumn}}").Offset(offset).Limit(limit)
 		if order != "" {
