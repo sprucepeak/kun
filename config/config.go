@@ -1,7 +1,7 @@
 package config
 
 const (
-	Version         = "1.3.8"
+	Version         = "1.3.9"
 	Slogan          = "\n     _    _\n    | |  / )\n    | | / /_   _ ____\n    | |< <| | | |  _ \\\n    | | \\ \\ |_| | | | |\n    |_|  \\_)____|_| |_|\n\n A CLI tool for building golang application. \n"
 	WireUrl         = "github.com/google/wire/cmd/wire@latest"
 	MockgenUrl      = "go.uber.org/mock/mockgen@latest"
