@@ -1,8 +1,6 @@
 package kun
 
 import (
-	"strings"
-
 	"github.com/spf13/cobra"
 	"github.com/sprucepeak/kun/config"
 	"github.com/sprucepeak/kun/internal/check"
@@ -50,33 +48,6 @@ func (e *CommandError) Error() string {
 
 func (e *CommandError) Unwrap() error {
 	return e.Err
-}
-
-// UsageError 与 ArgsError 是 CommandError 的别名，保证向后兼容。
-type UsageError = CommandError
-type ArgsError = CommandError
-
-// IsUsageError 判断错误是否为参数、子命令或 flag 用法相关错误。
-func IsUsageError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "unknown command ") ||
-		strings.Contains(msg, "arg(s), received ") ||
-		strings.Contains(msg, "arg, received ") ||
-		(strings.Contains(msg, "accepts between ") && strings.Contains(msg, "arg")) ||
-		(strings.Contains(msg, "requires at least ") && strings.Contains(msg, "arg")) ||
-		(strings.Contains(msg, "accepts at most ") && strings.Contains(msg, "arg")) ||
-		(strings.Contains(msg, "accepts ") && strings.Contains(msg, "arg(s)")) ||
-		strings.Contains(msg, "requires a subcommand") ||
-		strings.Contains(msg, "unknown flag: ") ||
-		strings.Contains(msg, "unknown shorthand flag: ")
-}
-
-// IsArgsError 是 IsUsageError 的别名，保持向后兼容。
-func IsArgsError(err error) bool {
-	return IsUsageError(err)
 }
 
 // Execute executes the root command.
