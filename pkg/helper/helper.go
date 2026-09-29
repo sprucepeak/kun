@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -122,4 +123,51 @@ func IsExcluded(path string, excludeDirs []string) bool {
 		}
 	}
 	return false
+}
+
+// FindTool 在 PATH 以及 GOBIN/GOPATH 目录下查找可执行文件。
+func FindTool(toolName string) (string, error) {
+	if p, err := exec.LookPath(toolName); err == nil {
+		return p, nil
+	}
+
+	gobin := GetGoBin()
+	if gobin != "" {
+		candidates := []string{
+			filepath.Join(gobin, toolName),
+			filepath.Join(gobin, toolName+".exe"),
+		}
+		for _, c := range candidates {
+			if info, err := os.Stat(c); err == nil && !info.IsDir() {
+				return c, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("tool %s not found in PATH or GOPATH/bin", toolName)
+}
+
+// GetGoPath 获取系统的 GOPATH 路径。
+func GetGoPath() string {
+	gopath := os.Getenv("GOPATH")
+	if gopath != "" {
+		return gopath
+	}
+	out, err := exec.Command("go", "env", "GOPATH").Output()
+	if err == nil {
+		return strings.TrimSpace(string(out))
+	}
+	return ""
+}
+
+// GetGoBin 获取 GOBIN 路径（若未设置则回退至 GOPATH/bin）。
+func GetGoBin() string {
+	gobin := os.Getenv("GOBIN")
+	if gobin != "" {
+		return gobin
+	}
+	gopath := GetGoPath()
+	if gopath != "" {
+		return filepath.Join(gopath, "bin")
+	}
+	return ""
 }

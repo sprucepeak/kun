@@ -30,7 +30,7 @@ var CmdMock = &cobra.Command{
 	Long:    "kun mock executes //go:generate directives to generate mock code.",
 	Example: "  kun mock\n  kun mock ./internal/service/svc/...\n  kun mock ./internal/service/svc/demo.go\n  kun mock -r mockgen",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if _, err := exec.LookPath("mockgen"); err != nil {
+		if _, err := helper.FindTool("mockgen"); err != nil {
 			return fmt.Errorf("mockgen is not installed or not in PATH, please install it: go install %s", config.MockgenUrl)
 		}
 

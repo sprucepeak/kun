@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/sprucepeak/kun/config"
@@ -221,7 +219,7 @@ func (e *toolInstallError) Error() string {
 
 // ensureTool 查找工具路径，若未找到且允许安装则执行自动安装
 func ensureTool(name, installUrl string, noInstall bool) (string, error) {
-	if bin, err := findTool(name); err == nil {
+	if bin, err := helper.FindTool(name); err == nil {
 		return bin, nil
 	}
 
@@ -244,7 +242,7 @@ func ensureTool(name, installUrl string, noInstall bool) (string, error) {
 
 	output.Success("%s 安装成功！", name)
 
-	bin, err := findTool(name)
+	bin, err := helper.FindTool(name)
 	if err != nil {
 		return "", &toolInstallError{
 			Tool: name,
@@ -252,51 +250,6 @@ func ensureTool(name, installUrl string, noInstall bool) (string, error) {
 		}
 	}
 	return bin, nil
-}
-
-// findTool 在 PATH 以及 GOBIN/GOPATH 目录下查找可执行文件
-func findTool(toolName string) (string, error) {
-	if p, err := exec.LookPath(toolName); err == nil {
-		return p, nil
-	}
-
-	gobin := getGoBin()
-	if gobin != "" {
-		candidates := []string{
-			filepath.Join(gobin, toolName),
-			filepath.Join(gobin, toolName+".exe"),
-		}
-		for _, c := range candidates {
-			if info, err := os.Stat(c); err == nil && !info.IsDir() {
-				return c, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("tool %s not found in PATH or GOPATH/bin", toolName)
-}
-
-func getGoPath() string {
-	gopath := os.Getenv("GOPATH")
-	if gopath != "" {
-		return gopath
-	}
-	out, err := exec.Command("go", "env", "GOPATH").Output()
-	if err == nil {
-		return strings.TrimSpace(string(out))
-	}
-	return ""
-}
-
-func getGoBin() string {
-	gobin := os.Getenv("GOBIN")
-	if gobin != "" {
-		return gobin
-	}
-	gopath := getGoPath()
-	if gopath != "" {
-		return filepath.Join(gopath, "bin")
-	}
-	return ""
 }
 
 func runCommand(name string, args ...string) error {

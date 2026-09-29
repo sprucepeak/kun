@@ -105,7 +105,7 @@ func Register(parent *cobra.Command) {
 }
 
 func ensureSwag(noInstall bool) (string, error) {
-	if bin, err := findTool("swag"); err == nil {
+	if bin, err := helper.FindTool("swag"); err == nil {
 		return bin, nil
 	}
 
@@ -125,53 +125,9 @@ func ensureSwag(noInstall bool) (string, error) {
 
 	output.Success("swag 安装成功！")
 
-	bin, err := findTool("swag")
+	bin, err := helper.FindTool("swag")
 	if err != nil {
 		return "", fmt.Errorf("swag installed but cannot be located in PATH or GOPATH/bin: %w", err)
 	}
 	return bin, nil
-}
-
-func findTool(toolName string) (string, error) {
-	if p, err := exec.LookPath(toolName); err == nil {
-		return p, nil
-	}
-
-	gobin := getGoBin()
-	if gobin != "" {
-		candidates := []string{
-			filepath.Join(gobin, toolName),
-			filepath.Join(gobin, toolName+".exe"),
-		}
-		for _, c := range candidates {
-			if info, err := os.Stat(c); err == nil && !info.IsDir() {
-				return c, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("tool %s not found in PATH or GOPATH/bin", toolName)
-}
-
-func getGoPath() string {
-	gopath := os.Getenv("GOPATH")
-	if gopath != "" {
-		return gopath
-	}
-	out, err := exec.Command("go", "env", "GOPATH").Output()
-	if err == nil {
-		return strings.TrimSpace(string(out))
-	}
-	return ""
-}
-
-func getGoBin() string {
-	gobin := os.Getenv("GOBIN")
-	if gobin != "" {
-		return gobin
-	}
-	gopath := getGoPath()
-	if gopath != "" {
-		return filepath.Join(gopath, "bin")
-	}
-	return ""
 }
