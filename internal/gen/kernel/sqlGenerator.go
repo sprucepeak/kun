@@ -64,15 +64,15 @@ type Field struct {
 
 type Column struct {
 	gorm.ColumnType
-	TableName   string         `gorm:"column:TABLE_NAME"`
-	Indexes     []*ColumnIndex `gorm:"-"`
-	UseScanType bool           `gorm:"-"`
+	TableName   string
+	Indexes     []*ColumnIndex
+	UseScanType bool
 }
 
 // Index table index info
 type ColumnIndex struct {
 	gorm.Index
-	Priority int32 `gorm:"column:SEQ_IN_INDEX"`
+	Priority int32
 }
 
 type dataTypeMap map[string]string
