@@ -3,7 +3,7 @@ package {{ .PackageName }}
 import (
 	"github.com/gin-gonic/gin"
 
-	"{{ .ProjectName }}/pkg/xerror"
+	"{{ .ProjectName }}/internal/global"
 	"{{ .ProjectName }}/pkg/xhttp"
 )
 
@@ -20,7 +20,7 @@ type (
 func ({{ .FileNameFirstChar }} *{{ .FileName }}Handler) Detail(ctx *gin.Context) {
 	req := &{{ .FileName }}DetailReq{}
 	if err := ctx.ShouldBind(req); err != nil {
-		xhttp.BusCode(ctx, xerror.ParamError, err)
+		xhttp.BusCode(ctx, global.ParamError, err)
 		return
 	}
 
