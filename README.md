@@ -48,7 +48,7 @@ kun 采用经典清晰的领域分层架构，配合 Wire 实现编译期自动�
 ```
 .
 ├── cmd/                           应用程序的主要入口
-│   ├── broker/                    异步调度服务器入口（仅在 Advanced 布局中提供）
+│   ├── broker/                    异步调度服务器入口（仅在 Service 布局中提供）
 │   │   ├── main.go                Wire DI 启动入口，信号优雅关闭
 │   │   └── wire/                  Wire 依赖注入与应用装配
 │   └── server/                    HTTP 服务的入口
@@ -58,11 +58,20 @@ kun 采用经典清晰的领域分层架构，配合 Wire 实现编译期自动�
 │           ├── wire.go            声明 Server 全栈分层依赖注入规则
 │           └── wire_gen.go        Wire 自动生成的装配代码
 ├── config/                        配置文件目录
-│   ├── local.yml                  本地开发环境配置文件
+│   ├── dev.yml                    本地/开发环境配置文件
 │   └── release.yml                生产环境配置文件
+├── deploy/                        容器化构建与编排（仅在 Service 布局中提供）
+│   ├── Dockerfile                 多阶段构建镜像文件
+│   └── docker-compose.yml         依赖中间件一键拉起编排
+├── docs/                          项目文档与静态资源
+│   └── sql/                       数据库全量 DDL 脚本与演示数据
 ├── internal/                      内部核心业务代码（禁止外部包导入）
 │   ├── conf/                      应用配置实体结构体（与底层驱动解耦）
 │   │   └── conf.go                Conf 结构体及各项具体子配置声明
+│   ├── event/                     异步事件发布/订阅层（仅在 Service 布局中提供）
+│   │   ├── publisher.go           异步事件发布者（基于 Asynq/Kafka）
+│   │   ├── subscriber.go          事件订阅处理器分发
+│   │   └── type.go                事件主题与负载定义
 │   ├── global/                    全局常量、枚举与统一业务错误码
 │   │   ├── code.go                业务错误码 (BusCode) 统一定义与 Msg 映射
 │   │   └── constant.go            上下文 Key 与路由前缀常量定义
@@ -89,8 +98,12 @@ kun 采用经典清晰的领域分层架构，配合 Wire 实现编译期自动�
 │   └── service/                   核心业务逻辑层
 │       ├── svc/                   核心业务逻辑编排（事务、领域计算）
 │       │   └── context.go         业务公共上下文（配置、DB、Redis 等）
-│       └── serverDI.go            Wire DI 注册全部 Service
-├── pkg/                           跨项目公共工具包（加解密、JWT、网络、配置、日志等）
+│       ├── serverDI.go            Wire DI 注册全部 Server Service
+│       └── brokerDI.go            Wire DI 注册全部 Broker 任务处理器（仅在 Service 布局中提供）
+├── pkg/                           跨项目公共工具包（加解密、JWT、网络、配置、日志、缓存、队列等）
+├── swagger/                       Swagger 静态接口文档（仅在 Service 布局中提供）
+├── test/                          集成测试与基准测试（仅在 Service 布局中提供）
+├── Makefile                       快捷工程构建指令文件（仅在 Service 布局中提供）
 ├── README.md                      项目说明文档
 ├── go.mod                         Go 模块依赖定义文件
 └── go.sum                         Go 模块版本校验文件
@@ -145,7 +158,7 @@ kun 内置支持全主流数据库逆向与代码生成， **所有驱动均为�
 ## 创建新项目 (`kun new`)
 
 ```bash
-# 创建新项目（推荐新手优先选择 Advanced Layout）
+# 创建新项目（推荐优先选择 Service Layout）
 kun new projectName
 
 # 支持通过 Git 指定远程模板
@@ -154,10 +167,8 @@ kun new projectName -g https://github.com/sprucepeak/kun.git
 
 > kun 内置了两种不同定位的工程模板：
 >
-> - **基础模板 (Basic Layout)**: 极简目录架构，仅包含基础 CRUD、日志与鉴权，适合资深开发者快速起步。
-> - **高级模板 (Advanced Layout)**: 包含双 Token 轮换认证、单端登录互斥、Redis 缓存击穿防护、Kafka + Asynq
-
-    异步调度中心、WebSocket、Excel 流式导出与 Swagger 等全套最佳实践。
+> - **纯接口模板 (Api Layout)**: 极简纯粹的 HTTP RESTful API 架构，聚焦轻量、高吞吐的无状态接口服务，仅包含基础 CRUD、日志、安全认证与健康检查。
+> - **服务工程模板 (Service Layout)**: 企业级全功能业务服务架构，在 HTTP API 基础上完整内置了双进程 Supervisor 架构的异步事件调度中心（Broker）、延时任务（Asynq）、分布式流消息（Kafka）、双 Token 轮换、Redis 击穿防护、Swagger 接口文档及 Docker 一键编排等生产级全套最佳实践。
 
 ---
 
@@ -308,7 +319,7 @@ kun swag --no-install
 # 1. 快速启动开发调试
 kun run
 
-# 2. 启动指定入口服务（如 Advanced 中的 Broker 消息调度服务器）
+# 2. 启动指定入口服务（如 Service 中的 Broker 消息调度服务器）
 kun run ./cmd/broker
 
 # 3. 编译 Wire 依赖注入代码（生成 wire_gen.go）
