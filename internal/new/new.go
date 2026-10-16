@@ -75,6 +75,12 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid project name %q: must be a relative directory name without path separators", p.ProjectName)
 	}
 
+	lowerName := strings.ToLower(p.ProjectName)
+	if lowerName != p.ProjectName {
+		output.Warn("Project name %q contains uppercase letters, normalized to %q to follow Go conventions.", p.ProjectName, lowerName)
+		p.ProjectName = lowerName
+	}
+
 	// clone repo
 	yes, err := p.cloneTemplate(repoURL)
 	if err != nil || !yes {
