@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// 模板打包脚本：用于将 tpl/basic 和 tpl/advanced 目录打包生成对应的 zip 文件。
+// 模板打包脚本：用于将 tpl/api 和 tpl/service 目录打包生成对应的 zip 文件。
 // 仅用于开发维护，执行命令：go run pack.go
 
 var ignorePatterns = []string{
@@ -145,8 +145,8 @@ func main() {
 		srcDir  string
 		zipFile string
 	}{
-		{name: "basic", srcDir: filepath.Join("tpl", "basic"), zipFile: filepath.Join("tpl", "basic.zip")},
-		{name: "advanced", srcDir: filepath.Join("tpl", "advanced"), zipFile: filepath.Join("tpl", "advanced.zip")},
+		{name: "api", srcDir: filepath.Join("tpl", "api"), zipFile: filepath.Join("tpl", "api.zip")},
+		{name: "service", srcDir: filepath.Join("tpl", "service"), zipFile: filepath.Join("tpl", "service.zip")},
 	}
 
 	fmt.Println("==> Packing templates to zip archives...")
