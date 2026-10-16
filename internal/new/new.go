@@ -26,16 +26,17 @@ type Project struct {
 
 var CmdNew = &cobra.Command{
 	Use:     "new",
-	Example: "kun new demo",
+	Example: "kun new demo\n  kun new demo -p ./my-template\n  kun new demo -g https://github.com/sprucepeak/kun.git",
 	Short:   "create a new project.",
 	Long:    `create a new project with kun layout.`,
 	RunE:    run,
 }
 
 func init() {
-	// repo-url flag 只在 RunE 内通过 cmd.Flags().GetString 读取，
+	// repo-url 与 path flag 只在 RunE 内通过 cmd.Flags().GetString 读取，
 	// 避免包级变量在多次调用间泄漏（对比 gen.go 的正确做法）。
 	CmdNew.Flags().StringP("repo-url", "g", "", "layout repo")
+	CmdNew.Flags().StringP("path", "p", "", "local layout path (directory or zip)")
 }
 
 // Register 将 new 子命令挂载到 parent。
@@ -50,6 +51,11 @@ func NewProject() *Project {
 func run(cmd *cobra.Command, args []string) error {
 	// B4 fix: 从 flag 读取而非包级变量
 	repoURL, _ := cmd.Flags().GetString("repo-url")
+	localPath, _ := cmd.Flags().GetString("path")
+
+	if repoURL != "" && localPath != "" {
+		return fmt.Errorf("cannot use both --repo-url (-g) and --path (-p)")
+	}
 
 	p := NewProject()
 	switch len(args) {
@@ -75,8 +81,14 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid project name %q: must be a relative directory name without path separators", p.ProjectName)
 	}
 
-	// clone repo
-	yes, err := p.cloneTemplate(repoURL)
+	lowerName := strings.ToLower(p.ProjectName)
+	if lowerName != p.ProjectName {
+		output.Warn("Project name %q contains uppercase letters, normalized to %q to follow Go conventions.", p.ProjectName, lowerName)
+		p.ProjectName = lowerName
+	}
+
+	// clone repo or use local template
+	yes, err := p.cloneTemplate(repoURL, localPath)
 	if err != nil || !yes {
 		return err
 	}
@@ -101,7 +113,7 @@ func run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (p *Project) cloneTemplate(repoURL string) (bool, error) {
+func (p *Project) cloneTemplate(repoURL, localPath string) (bool, error) {
 
 	stat, _ := os.Stat(p.ProjectName)
 	if stat != nil {
@@ -124,19 +136,25 @@ func (p *Project) cloneTemplate(repoURL string) (bool, error) {
 		}
 	}
 
-	if repoURL == "" {
+	if localPath != "" {
+		p.TemplateName = localPath
+		output.Success("Generate code from local template: %s", localPath)
+		if err := handlerLocal(p.ProjectName, localPath); err != nil {
+			return false, err
+		}
+	} else if repoURL == "" {
 		layout := ""
 		prompt := &survey.Select{
 			Message: "Please select a layout:",
 			Options: []string{
-				"Advanced",
-				"Basic",
+				"Api",
+				"Service",
 			},
 			Description: func(value string, index int) string {
-				if index == 1 {
-					return "A basic project structure"
+				if index == 0 {
+					return "A pure HTTP RESTful API server"
 				}
-				return "It has rich functions such as db, jwt, cron, migration, test, etc"
+				return "HTTP API + Broker asynchronous worker for Kafka/Asynq/Cron"
 			},
 		}
 		err := survey.AskOne(prompt, &layout)
@@ -145,9 +163,9 @@ func (p *Project) cloneTemplate(repoURL string) (bool, error) {
 			return false, nil
 		}
 
-		templateName := "basic"
-		if layout != "Basic" {
-			templateName = "advanced"
+		templateName := "api"
+		if layout == "Service" {
+			templateName = "service"
 		}
 		p.TemplateName = templateName
 
@@ -224,7 +242,7 @@ func (p *Project) updateReadme(oldPackageName string) error {
 
 	lines := strings.Split(content, "\n")
 	if len(lines) > 0 && strings.HasPrefix(lines[0], "#") {
-		// 替换标题中的旧模块名（例如 basic 或 advanced）为新项目名
+		// 替换标题中的旧模块名（例如 api 或 service）为新项目名
 		if oldPackageName != "" {
 			lines[0] = strings.Replace(lines[0], oldPackageName, p.ProjectName, 1)
 		}
@@ -275,8 +293,7 @@ func (p *Project) installWire() error {
 
 func (p *Project) replaceFiles(packageName string) error {
 	// 只替换 import path 前缀("packageName/"),避免全文替换误伤注释/字符串里的同名词。
-	// 例如 packageName="advanced" 时,"advanced/pkg/xlog" -> "myproj/pkg/xlog",
-	// 但不会改动注释里的 "advanced usage" 或字符串 "basic auth"。
+	// 例如 packageName="service" 时,"service/pkg/xlog" -> "myproj/pkg/xlog",
 	oldImport := "\"" + packageName + "/"
 	newImport := "\"" + p.ProjectName + "/"
 	err := filepath.Walk(p.ProjectName, func(path string, info os.FileInfo, err error) error {
@@ -305,12 +322,107 @@ func (p *Project) replaceFiles(packageName string) error {
 	return nil
 }
 
-// handlerZip 将内嵌 zip 模板解压到 projectName 目录。
-func handlerZip(projectName, templateName string) error {
-	// 创建项目目录
-	if err := os.MkdirAll(projectName, 0755); err != nil {
+// handlerLocal 从本地目录或 zip 压缩包复制/解压生成项目
+func handlerLocal(projectName, localPath string) error {
+	fi, err := os.Stat(localPath)
+	if err != nil {
+		return fmt.Errorf("local template path %q not found: %w", localPath, err)
+	}
+
+	if fi.IsDir() {
+		return copyDir(localPath, projectName)
+	}
+
+	// 否则作为 zip 压缩包处理
+	zipReader, err := zip.OpenReader(localPath)
+	if err != nil {
+		return fmt.Errorf("open local template zip %q error: %w", localPath, err)
+	}
+	defer zipReader.Close()
+
+	return extractZipReader(projectName, &zipReader.Reader)
+}
+
+func copyDir(src, dst string) error {
+	srcAbs, err := filepath.Abs(src)
+	if err != nil {
 		return err
 	}
+	dstAbs, err := filepath.Abs(dst)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		return err
+	}
+
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// 忽略 .git 目录
+		if info.IsDir() && info.Name() == ".git" {
+			return filepath.SkipDir
+		}
+
+		currentAbs, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+
+		// 如果 dst 位于 src 内部，避免递归复制 dst
+		if currentAbs == dstAbs || strings.HasPrefix(currentAbs, dstAbs+string(filepath.Separator)) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		relPath, err := filepath.Rel(srcAbs, currentAbs)
+		if err != nil {
+			return err
+		}
+		if relPath == "." {
+			return nil
+		}
+
+		targetPath := filepath.Join(dst, relPath)
+
+		if info.IsDir() {
+			return os.MkdirAll(targetPath, info.Mode())
+		}
+
+		return copyFile(path, targetPath, info.Mode())
+	})
+}
+
+func copyFile(src, dst string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	sf, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sf.Close()
+
+	df, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+
+	_, copyErr := io.Copy(df, sf)
+	closeErr := df.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
+}
+
+// handlerZip 将内嵌 zip 模板解压到 projectName 目录。
+func handlerZip(projectName, templateName string) error {
 	tempFile, err := tpl.NewTplZipFS.ReadFile(templateName + ".zip")
 	if err != nil {
 		return err
@@ -318,6 +430,15 @@ func handlerZip(projectName, templateName string) error {
 
 	zipReader, err := zip.NewReader(bytes.NewReader(tempFile), int64(len(tempFile)))
 	if err != nil {
+		return err
+	}
+
+	return extractZipReader(projectName, zipReader)
+}
+
+func extractZipReader(projectName string, zipReader *zip.Reader) error {
+	// 创建项目目录
+	if err := os.MkdirAll(projectName, 0755); err != nil {
 		return err
 	}
 
@@ -349,6 +470,11 @@ func handlerZip(projectName, templateName string) error {
 				return err
 			}
 			continue
+		}
+
+		// 确保父目录存在
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+			return err
 		}
 
 		// 获取 Reader
