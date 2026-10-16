@@ -161,6 +161,9 @@ kun 内置支持全主流数据库逆向与代码生成， **所有驱动均为�
 # 创建新项目（推荐优先选择 Service Layout）
 kun new projectName
 
+# 支持通过本地路径指定模板（本地目录或 zip 压缩包）
+kun new projectName -p /path/to/local/template
+
 # 支持通过 Git 指定远程模板
 kun new projectName -g https://github.com/sprucepeak/kun.git
 ```
