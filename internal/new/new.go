@@ -75,6 +75,12 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid project name %q: must be a relative directory name without path separators", p.ProjectName)
 	}
 
+	lowerName := strings.ToLower(p.ProjectName)
+	if lowerName != p.ProjectName {
+		output.Warn("Project name %q contains uppercase letters, normalized to %q to follow Go conventions.", p.ProjectName, lowerName)
+		p.ProjectName = lowerName
+	}
+
 	// clone repo
 	yes, err := p.cloneTemplate(repoURL)
 	if err != nil || !yes {
@@ -129,14 +135,14 @@ func (p *Project) cloneTemplate(repoURL string) (bool, error) {
 		prompt := &survey.Select{
 			Message: "Please select a layout:",
 			Options: []string{
-				"Advanced",
-				"Basic",
+				"Api",
+				"Service",
 			},
 			Description: func(value string, index int) string {
-				if index == 1 {
-					return "A basic project structure"
+				if index == 0 {
+					return "A pure HTTP RESTful API server"
 				}
-				return "It has rich functions such as db, jwt, cron, migration, test, etc"
+				return "HTTP API + Broker asynchronous worker for Kafka/Asynq/Cron"
 			},
 		}
 		err := survey.AskOne(prompt, &layout)
@@ -145,9 +151,9 @@ func (p *Project) cloneTemplate(repoURL string) (bool, error) {
 			return false, nil
 		}
 
-		templateName := "basic"
-		if layout != "Basic" {
-			templateName = "advanced"
+		templateName := "api"
+		if layout == "Service" {
+			templateName = "service"
 		}
 		p.TemplateName = templateName
 
@@ -224,7 +230,7 @@ func (p *Project) updateReadme(oldPackageName string) error {
 
 	lines := strings.Split(content, "\n")
 	if len(lines) > 0 && strings.HasPrefix(lines[0], "#") {
-		// 替换标题中的旧模块名（例如 basic 或 advanced）为新项目名
+		// 替换标题中的旧模块名（例如 api 或 service）为新项目名
 		if oldPackageName != "" {
 			lines[0] = strings.Replace(lines[0], oldPackageName, p.ProjectName, 1)
 		}
@@ -275,8 +281,7 @@ func (p *Project) installWire() error {
 
 func (p *Project) replaceFiles(packageName string) error {
 	// 只替换 import path 前缀("packageName/"),避免全文替换误伤注释/字符串里的同名词。
-	// 例如 packageName="advanced" 时,"advanced/pkg/xlog" -> "myproj/pkg/xlog",
-	// 但不会改动注释里的 "advanced usage" 或字符串 "basic auth"。
+	// 例如 packageName="service" 时,"service/pkg/xlog" -> "myproj/pkg/xlog",
 	oldImport := "\"" + packageName + "/"
 	newImport := "\"" + p.ProjectName + "/"
 	err := filepath.Walk(p.ProjectName, func(path string, info os.FileInfo, err error) error {
