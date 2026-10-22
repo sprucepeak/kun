@@ -57,7 +57,7 @@ kun 采用经典清晰的领域分层架构，配合 Wire 实现编译期自动�
 │           ├── app.go             HTTP 应用装配（Gin 模式、中间件、路由与资源优雅回收）
 │           ├── wire.go            声明 Server 全栈分层依赖注入规则
 │           └── wire_gen.go        Wire 自动生成的装配代码
-├── config/                        配置文件目录
+├── configs/                       配置文件目录
 │   ├── dev.yml                    本地/开发环境配置文件
 │   └── release.yml                生产环境配置文件
 ├── deploy/                        容器化构建与编排（仅在 Service 布局中提供）
